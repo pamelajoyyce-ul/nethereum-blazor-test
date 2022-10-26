@@ -1,0 +1,121 @@
+﻿@page "/fetchdata"
+@using Nethereum.RPC.Eth.DTOs
+@using Nethereum.UI
+@using Nethereum.Util
+@using Nethereum.Web3
+@using Nethereum.Web3.Accounts
+@using System.Numerics
+@using Nethereum.Metamask;
+
+@inject MetamaskHostProvider MetamaskHostProvider
+
+<PageTitle>Metamask Interaction</PageTitle>
+
+<h1>Metamask Interaction</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+    IEthereumHostProvider? _ethereumHostProvider { get; set; }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ethereumHostProvider = MetamaskHostProvider;
+            Console.WriteLine(_ethereumHostProvider);
+        }
+        base.OnAfterRender(firstRender);
+    }
+
+    private async Task IncrementCount()
+    {
+        currentCount++;
+        if (_ethereumHostProvider is null) return;
+        var connectResult = await _ethereumHostProvider.CheckProviderAvailabilityAsync();
+        Console.WriteLine(connectResult);
+        await _ethereumHostProvider.EnableProviderAsync();
+
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+
+
+        web3.TransactionManager.UseLegacyAsDefault = true;
+        web3.TransactionManager.EstimateOrSetDefaultGasIfNotSet = false;
+        web3.TransactionManager.CalculateOrSetDefaultGasPriceFeesIfNotSet = false;
+
+
+        @* var account = new Account("b6a7d8da08eb39e61f45ce373345656b05bff78b7746d46153ed52c83d5ab53d");
+            var web3 = new Web3(account, "https://rpc-devnet-cardano-evm.c1.milkomeda.com"); *@
+
+        var accountAddress = web3.TransactionManager.Account != null ? web3.TransactionManager.Account.Address :
+                await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        Console.WriteLine("Connected Account: {0}", accountAddress);
+
+        @* var balance = await web3.Eth.GetBalance.SendRequestAsync("0x48D51ebfd87d2ec655A77BdC7E798DbF42Eab770");
+            Console.WriteLine($"Balance in Wei: {balance.Value}");
+
+            var etherAmount = Web3.Convert.FromWei(balance.Value);
+            Console.WriteLine($"Balance in Ether: {etherAmount}"); *@
+
+        @* var currentNonce = await web3.Eth.Transactions.GetTransactionCount.SendRequestAsync(accountAddress,
+        BlockParameter.CreatePending());
+        Console.WriteLine("Nonce {0}", currentNonce);
+        var transaction = await web3.Eth.GetEtherTransferService()
+        .TransferEtherAndWaitForReceiptAsync(accountAddress, 0.001m, 60m, 30000, currentNonce);
+
+        Console.WriteLine("Transaction Hash: {0}", transaction.TransactionHash); *@
+
+        // Deploy
+        var storageDeploymentMesasge = new StorageContractDeployment();
+        var deploymentHandler = web3.Eth.GetContractDeploymentHandler<StorageContractDeployment>();
+
+        // Milkomeda / Metamask seems to need manual gas for contract otherwise it will try to estimate gas and causes error
+        storageDeploymentMesasge.Gas = 500000;
+        storageDeploymentMesasge.GasPrice = Nethereum.Web3.Web3.Convert.ToWei(60, UnitConversion.EthUnit.Gwei);
+        storageDeploymentMesasge.Nonce = await web3.Eth.Transactions.GetTransactionCount.SendRequestAsync(accountAddress,
+        BlockParameter.CreatePending());
+
+        var transactionReceipt = await deploymentHandler.SendRequestAndWaitForReceiptAsync(storageDeploymentMesasge);
+        var contractAddress = transactionReceipt.ContractAddress;
+        Console.WriteLine("Contract Deployed: {0} {1}", transactionReceipt.Status, contractAddress);
+
+        // Store
+        var storeHandler = web3.Eth.GetContractTransactionHandler<StoreFunction>();
+        var storeFunction = new StoreFunction()
+        {
+            Num = 1337
+        };
+        storeFunction.Nonce = await web3.Eth.Transactions.GetTransactionCount.SendRequestAsync(accountAddress,
+        BlockParameter.CreatePending());
+
+        // Milkomeda / Metamask seems to need manual gas for contract otherwise it will try to estimate gas and causes error
+        storeFunction.Gas = 100000;
+        storeFunction.GasPrice = Nethereum.Web3.Web3.Convert.ToWei(100, UnitConversion.EthUnit.Gwei);
+
+        var storeReceipt = await storeHandler.SendRequestAndWaitForReceiptAsync(contractAddress, storeFunction);
+        Console.WriteLine("New Value Stored into contract: {0}", storeReceipt.TransactionHash);
+
+        // Retrieve
+        @* var retrieveQueryHandler = web3.Eth.GetContractQueryHandler<RetrieveFunction>();
+        Console.WriteLine("retrieveQueryHandler");
+        var retrieveFunction = new RetrieveFunction();
+        Console.WriteLine("retrieveFunction");
+        retrieveFunction.Nonce = await web3.Eth.Transactions.GetTransactionCount.SendRequestAsync(accountAddress,
+        BlockParameter.CreatePending());
+        Console.WriteLine("retriveFunctionNoncesss"); *@
+        @* Error appears here *@
+        @* var v = await retrieveQueryHandler.QueryAsync<BigInteger>(contractAddress, retrieveFunction); *@
+            @* var balance = await retrieveQueryHandler.QueryDeserializingToObjectAsync<RetrieveFunction>( new(), contractAddress, BlockParameter.CreateLatest); *@
+        
+        
+        var retrieveQueryHandler = web3.Eth.GetContractQueryHandler<RetrieveFunction>();
+        var value = await retrieveQueryHandler.QueryAsync<BigInteger>(contractAddress, new());
+        Console.WriteLine("value");
+
+        Console.WriteLine("Retrieved: {0}", value);
+    }
+}

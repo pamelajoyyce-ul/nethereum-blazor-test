@@ -1,0 +1,59 @@
+﻿@page "/"
+@using Nethereum.Web3.Accounts;
+@using System.Numerics
+
+<PageTitle>Simple Transactions</PageTitle>
+
+<h1>Simple Transactions</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+@* <input type=number @bind-value=@numberToStore placeholder="input number" /> *@
+
+@code {
+    private int currentCount = 0;
+    private int numberToStore { get; set; }
+
+    private async Task IncrementCount()
+    {
+        currentCount++;
+
+        var account = new Account("5bc1552b07590dc35682a8bd08ac32524bd1dcacb4f54a2190b517b143f0471d");
+        var web3 = new Web3(account, "https://rpc-devnet-cardano-evm.c1.milkomeda.com");
+        web3.TransactionManager.UseLegacyAsDefault = true;
+     var balance = await web3.Eth.GetBalance.SendRequestAsync("0xFBa5c5aC286463aa3E562dd085131F0B071AB549");
+        Console.WriteLine("Balance in Wei: {0}", balance);
+
+        var ethBalance = Web3.Convert.FromWei(balance.Value);
+        Console.WriteLine("Blance in ETH: {0}", ethBalance);
+
+        var transaction = await web3.Eth.GetEtherTransferService()
+        .TransferEtherAndWaitForReceiptAsync("0x63a1a029C1CbDD8E12b1A2477349330e489Fe7f5", 1.1m);
+        Console.WriteLine("Transaction hash: {0}", transaction.TransactionHash);
+
+        @* var deploymentHandler = web3.Eth.GetContractDeploymentHandler<StorageContractDeployment>();
+        var transactionReceipt = await deploymentHandler.SendRequestAndWaitForReceiptAsync(new StorageContractDeployment());
+        var contractAddress = transactionReceipt.ContractAddress;
+        Console.WriteLine("Contract Address: {0}", contractAddress); *@
+
+        @* var retrieveQueryHandler = web3.Eth.GetContractQueryHandler<RetrieveFunction>();
+        var value = await retrieveQueryHandler.QueryAsync<BigInteger>(contractAddress, new());
+        Console.WriteLine("Retrieving Value");
+        Console.WriteLine("Value: {0}", value);
+
+        var storeQueryHandler = web3.Eth.GetContractTransactionHandler<StoreFunction>();
+        var storeReceipt = await storeQueryHandler.SendRequestAndWaitForReceiptAsync(contractAddress, new()
+        {
+            Num = numberToStore
+        });
+
+        Console.WriteLine("Storing Value");
+
+        var retrieveQueryHandler = web3.Eth.GetContractQueryHandler<RetrieveFunction>();
+        var value = await retrieveQueryHandler.QueryAsync<BigInteger>(contractAddress, new());
+        Console.WriteLine("Retrieving Value");
+        Console.WriteLine("New Value: {0}", value); *@
+    }
+
+}
